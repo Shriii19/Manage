@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: manage_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: manage_user
+      POSTGRES_PASSWORD: manage_password
+      POSTGRES_DB: manage_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - manage_pg_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+volumes:
+  manage_pg_data:

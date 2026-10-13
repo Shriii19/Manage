@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Assignment Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="background-shape shape-a"></div>
+    <div class="background-shape shape-b"></div>
+
+    <main class="layout">
+      <section class="panel input-panel">
+        <header>
+          <p class="kicker">MVP Planning Tool</p>
+          <h1>Project Assignment Tracker</h1>
+          <p class="subtitle">
+            Create a project, assign owners, choose multiple task streams, and
+            track deadlines in one place.
+          </p>
+        </header>
+
+        <form id="project-form" novalidate>
+          <div class="field">
+            <label for="projectName">Project Name</label>
+            <input id="projectName" name="projectName" type="text" required />
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="assignedTo">Assign To</label>
+              <input id="assignedTo" name="assignedTo" type="text" required />
+            </div>
+            <div class="field">
+              <label for="priority">Priority</label>
+              <select id="priority" name="priority">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="assignDate">Assign Date</label>
+              <input id="assignDate" name="assignDate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="deadline">Deadline</label>
+              <input id="deadline" name="deadline" type="date" required />
+            </div>
+          </div>
+
+          <fieldset class="field task-fieldset">
+            <legend>Task Types (select multiple)</legend>
+            <div id="task-options" class="task-grid"></div>
+          </fieldset>
+
+          <div class="field">
+            <label for="customTasks">Custom Task Tags (comma separated)</label>
+            <input
+              id="customTasks"
+              name="customTasks"
+              type="text"
+              placeholder="security review, deployment"
+            />
+          </div>
+
+          <div class="field">
+            <label for="description">Notes</label>
+            <textarea
+              id="description"
+              name="description"
+              rows="3"
+              placeholder="Add context, blockers, links, dependencies..."
+            ></textarea>
+          </div>
+
+          <p id="form-error" class="form-error" role="alert" aria-live="polite"></p>
+
+          <button type="submit" class="btn btn-primary">Add Project</button>
+        </form>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="list-header">
+          <div>
+            <p class="kicker">Live Overview</p>
+            <h2>Assignments</h2>
+          </div>
+          <div class="stats" id="stats"></div>
+        </div>
+
+        <div class="filters">
+          <label class="field compact">
+            <span>Status</span>
+            <select id="statusFilter">
+              <option value="all">All</option>
+              <option value="open">Open</option>
+              <option value="completed">Completed</option>
+              <option value="overdue">Overdue</option>
+            </select>
+          </label>
+
+          <label class="field compact">
+            <span>Search Assignee</span>
+            <input id="assigneeFilter" type="text" placeholder="type a name" />
+          </label>
+        </div>
+
+        <div id="project-list" class="project-list"></div>
+      </section>
+    </main>
+
+    <template id="project-template">
+      <article class="project-card">
+        <div class="card-top">
+          <h3 class="project-title"></h3>
+          <span class="chip priority-chip"></span>
+        </div>
+        <p class="meta"><strong>Owner:</strong> <span class="owner"></span></p>
+        <p class="meta">
+          <strong>Timeline:</strong> <span class="timeline"></span>
+        </p>
+        <div class="task-chips"></div>
+        <p class="description"></p>
+        <div class="card-footer">
+          <span class="chip status-chip"></span>
+          <div class="actions">
+            <button class="btn btn-secondary toggle-btn" type="button"></button>
+            <button class="btn btn-danger delete-btn" type="button">Delete</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
