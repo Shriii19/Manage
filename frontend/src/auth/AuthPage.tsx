@@ -70,28 +70,60 @@ export function AuthPage() {
 
   return (
     <main className="auth-screen">
-      <section className="panel auth-panel">
-        <header>
-          <p className="kicker">Project Assignment Tracker</p>
-          <h1>{isSignUp ? 'Create your account' : 'Welcome back'}</h1>
-          <p className="subtitle">
-            {isSignUp
-              ? 'Sign up to create a team and start assigning work.'
-              : "Sign in to see your team's assignments."}
-          </p>
-        </header>
+      <section className="auth-layout">
+        <aside className="auth-intro">
+          <p className="auth-brand"><span className="brand-mark">M</span> Manage</p>
+          <div>
+            <p className="kicker">Project Assignment Tracker</p>
+            <h1>Good work starts with a clear plan.</h1>
+            <p className="auth-intro-copy">
+              Bring your team and its next steps together in one focused workspace.
+            </p>
+          </div>
+          <p className="auth-footnote">A calmer way to keep work moving.</p>
+        </aside>
 
-        <button className="btn btn-secondary btn-google" type="button" onClick={handleGoogle} disabled={busy}>
-          <GoogleIcon />
-          Continue with Google
-        </button>
+        <section className="panel auth-panel">
+          <header>
+            <p className="kicker">{isSignUp ? 'Get started' : 'Your workspace'}</p>
+            <h2>{isSignUp ? 'Create your account' : 'Welcome back'}</h2>
+            <p className="subtitle">
+              {isSignUp
+                ? 'Create an account to start assigning work.'
+                : "Sign in to see your team's assignments."}
+            </p>
+          </header>
 
-        <div className="auth-divider">
-          <span>or use email</span>
-        </div>
+          {!isSignUp && (
+            <aside className="demo-access" aria-label="Demo account credentials">
+              <div>
+                <p className="demo-label">Demo access</p>
+                <p className="demo-credentials"><span>test@manage</span><span>1234</span></p>
+              </div>
+              <button
+                className="demo-fill"
+                type="button"
+                onClick={() => {
+                  setEmail('test@manage')
+                  setPassword('1234')
+                }}
+              >
+                Use demo
+              </button>
+            </aside>
+          )}
 
-        <form className="form" onSubmit={handleSubmit}>
-          {isSignUp && (
+          <button className="btn btn-secondary btn-google" type="button" onClick={handleGoogle} disabled={busy}>
+            <GoogleIcon />
+            Continue with Google
+          </button>
+
+          <div className="auth-divider">
+            <span>or use email</span>
+          </div>
+
+          <form className="form" onSubmit={handleSubmit}>
+            {isSignUp && (
             <label className="field">
               <span>Full Name</span>
               <input
@@ -102,58 +134,59 @@ export function AuthPage() {
                 required
               />
             </label>
-          )}
+            )}
 
-          <label className="field">
-            <span>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              autoComplete="email"
-              placeholder="you@company.com"
-              required
-            />
-          </label>
+            <label className="field">
+              <span>Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                placeholder="you@company.com"
+                required
+              />
+            </label>
 
-          <label className="field">
-            <span>Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete={isSignUp ? 'new-password' : 'current-password'}
-              minLength={8}
-              maxLength={128}
-              placeholder={isSignUp ? 'At least 8 characters' : ''}
-              required
-            />
-          </label>
+            <label className="field">
+              <span>Password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                minLength={isSignUp ? 8 : undefined}
+                maxLength={128}
+                placeholder={isSignUp ? 'At least 8 characters' : ''}
+                required
+              />
+            </label>
 
-          <p className="error" role="alert" aria-live="polite">
-            {error}
-          </p>
-          {notice && (
-            <p className="auth-notice" role="status">
-              {notice}
+            <p className="error" role="alert" aria-live="polite">
+              {error}
             </p>
-          )}
+            {notice && (
+              <p className="auth-notice" role="status">
+                {notice}
+              </p>
+            )}
 
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : isSignUp ? 'Create Account' : 'Sign In'}
-          </button>
-        </form>
+            <button className="btn btn-primary" type="submit" disabled={busy}>
+              {busy ? 'Please wait…' : isSignUp ? 'Create Account' : 'Sign In'}
+            </button>
+          </form>
 
-        <p className="auth-switch">
-          {isSignUp ? 'Already have an account?' : 'New here?'}{' '}
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => switchMode(isSignUp ? 'sign-in' : 'sign-up')}
-          >
-            {isSignUp ? 'Sign in' : 'Create an account'}
-          </button>
-        </p>
+          <p className="auth-switch">
+            {isSignUp ? 'Already have an account?' : 'New here?'}{' '}
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => switchMode(isSignUp ? 'sign-in' : 'sign-up')}
+            >
+              {isSignUp ? 'Sign in' : 'Create an account'}
+            </button>
+          </p>
+        </section>
       </section>
     </main>
   )
