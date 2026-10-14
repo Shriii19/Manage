@@ -17,6 +17,15 @@
    and uses its `sub` claim (the `neon_auth.user.id`) as the current user.
 4. App tables (`teams`, `team_members`, `assignments`) live in `public` and reference `neon_auth.user`.
 
+### Demo sign-in
+
+The sign-in page provides a demo account shortcut:
+
+- Email: `test@manage`
+- Password: `1234`
+
+This account must be created in the Neon Auth project configured for the app before it can be used.
+
 ## Project Structure
 
 ```text
