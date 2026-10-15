@@ -182,9 +182,50 @@ textarea:focus {
   gap: 12px;
 }
 
-.stats {
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.stat-tile {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+}
+
+.stat-tile strong {
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.stat-tile span {
+  font-size: 0.8rem;
   font-weight: 600;
-  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stat-open {
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-color: #bfdbfe;
+}
+
+.stat-overdue {
+  background: #fff1f2;
+  color: #9f1239;
+  border-color: #fecdd3;
+}
+
+.stat-completed {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: #bbf7d0;
 }
 
 .filters {
@@ -209,7 +250,40 @@ textarea:focus {
   background: #fff;
   padding: 14px;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+  border-left: 5px solid #93c5fd;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
   animation: fadeUp 320ms ease both;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+}
+
+.card-overdue {
+  border-left-color: #f43f5e;
+}
+
+.card-completed {
+  border-left-color: #22c55e;
+  background: #fafffb;
+}
+
+.card-completed h3 {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.card-notes {
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 0.92rem;
+}
+
+.list-panel {
+  align-self: start;
 }
 
 .card-head,
