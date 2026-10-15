@@ -562,9 +562,21 @@ function App() {
                 <p className="kicker">Live Overview</p>
                 <h2>Assignments</h2>
               </div>
-              <p className="stats">
-                Open: {stats.open} | Overdue: {stats.overdue} | Completed: {stats.completed}
-              </p>
+            </div>
+
+            <div className="stat-tiles">
+              <div className="stat-tile stat-open">
+                <strong>{stats.open}</strong>
+                <span>Open</span>
+              </div>
+              <div className="stat-tile stat-overdue">
+                <strong>{stats.overdue}</strong>
+                <span>Overdue</span>
+              </div>
+              <div className="stat-tile stat-completed">
+                <strong>{stats.completed}</strong>
+                <span>Completed</span>
+              </div>
             </div>
 
             <div className="filters">
@@ -627,7 +639,7 @@ function App() {
                   const pending = pendingIds.includes(item.id)
 
                   return (
-                    <article className="card" key={item.id}>
+                    <article className={`card card-${status.toLowerCase()}`} key={item.id}>
                       <div className="card-head">
                         <h3>{item.projectName}</h3>
                         <span className={`chip priority-${item.priority}`}>{item.priority}</span>
