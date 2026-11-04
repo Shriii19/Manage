@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Icon } from '../components/Icon.tsx'
 import {
   addPerson,
   createTeam,
@@ -15,6 +16,7 @@ type TeamBarProps = {
   teams: Team[]
   activeTeam: Team | null
   people: Person[]
+  loading: boolean
   onSelectTeam: (teamId: string) => void
   onTeamCreated: (team: Team) => void
   onTeamDeleted: (teamId: string) => void
@@ -26,6 +28,7 @@ export function TeamBar({
   teams,
   activeTeam,
   people,
+  loading,
   onSelectTeam,
   onTeamCreated,
   onTeamDeleted,
@@ -91,7 +94,7 @@ export function TeamBar({
 
   function handleRemovePerson(person: Person) {
     if (!activeTeam) return
-    if (!window.confirm(`Remove ${person.name}? Their assignments will become unassigned.`)) return
+    if (!window.confirm(`Remove ${person.name} from this team? They will be removed from any assigned work.`)) return
     void run(async () => {
       await removePerson(activeTeam.id, person.id)
       onPersonRemoved(person.id)
@@ -99,12 +102,13 @@ export function TeamBar({
   }
 
   return (
-    <section className="team-bar">
+    <section className="team-panel" aria-label="Team management">
+      <p className="nav-label">Your team</p>
       <div className="team-bar-main">
         {teams.length > 0 ? (
           <label className="field compact">
-            <span>Team</span>
-            <select value={activeTeam?.id ?? ''} onChange={(event) => onSelectTeam(event.target.value)}>
+            <span className="sr-only">Team</span>
+            <select aria-label="Team" value={activeTeam?.id ?? ''} onChange={(event) => onSelectTeam(event.target.value)} disabled={busy}>
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
@@ -113,28 +117,18 @@ export function TeamBar({
             </select>
           </label>
         ) : (
-          <p className="team-bar-hint">You are not in a team yet. Create one to start tracking assignments.</p>
+          <p className="team-bar-hint">A place for your people and projects.</p>
         )}
 
-        {activeTeam && (
-          <span className="chip task-chip">
-            {people.length} {people.length === 1 ? 'member' : 'members'}
-          </span>
-        )}
       </div>
 
-      <div className="actions">
-        <button className="btn btn-secondary" type="button" onClick={() => toggleMode('new-team')}>
-          New Team
+      <div className="team-quick-actions">
+        <button className="text-button" type="button" onClick={() => toggleMode('new-team')} disabled={busy} aria-expanded={mode === 'new-team'}>
+          <Icon name="plus" size={15} /> New team
         </button>
         {canManage && (
-          <button className="btn btn-secondary" type="button" onClick={() => toggleMode('add-member')}>
-            Add Member
-          </button>
-        )}
-        {isOwner && (
-          <button className="btn btn-danger" type="button" onClick={handleDeleteTeam} disabled={busy}>
-            Delete Team
+          <button className="text-button" type="button" onClick={() => toggleMode('add-member')} disabled={busy || loading} aria-expanded={mode === 'add-member'}>
+            <Icon name="users" size={15} /> Add member
           </button>
         )}
       </div>
@@ -145,13 +139,16 @@ export function TeamBar({
             value={teamName}
             onChange={(event) => setTeamName(event.target.value)}
             placeholder="Team name"
+            aria-label="New team name"
             maxLength={120}
             required
+            disabled={busy}
             autoFocus
           />
           <button className="btn btn-primary" type="submit" disabled={busy}>
             {busy ? 'Creating…' : 'Create Team'}
           </button>
+          <button className="text-button" type="button" onClick={() => setMode('idle')} disabled={busy}>Cancel</button>
         </form>
       )}
 
@@ -162,37 +159,44 @@ export function TeamBar({
             value={personName}
             onChange={(event) => setPersonName(event.target.value)}
             placeholder="Member name, e.g. Shree"
+            aria-label="New member name"
             maxLength={80}
             required
+            disabled={busy}
             autoFocus
           />
           <button className="btn btn-primary" type="submit" disabled={busy}>
             {busy ? 'Adding…' : 'Add'}
           </button>
+          <button className="text-button" type="button" onClick={() => setMode('idle')} disabled={busy}>Done</button>
         </form>
       )}
 
-      {people.length > 0 && (
-        <div className="chips team-people">
+      {activeTeam && <details className="team-details" open>
+        <summary>Team members <span className="count-badge">{loading ? '–' : people.length}</span></summary>
+        {loading ? <p className="field-hint">Loading your team…</p> : !people.length ? <p className="field-hint">{canManage ? 'Add your first team member to start assigning work.' : 'No team members added yet.'}</p> : <div className="team-people">
           {people.map((person) => (
-            <span className="chip task-chip person-chip" key={person.id}>
-              {person.name}
+            <div className="person-row" key={person.id}>
+              <span className="mini-avatar" aria-hidden="true">{person.name.charAt(0).toUpperCase()}</span>
+              <span>{person.name}</span>
               {canManage && (
                 <button
                   type="button"
-                  className="chip-remove"
+                  className="icon-button chip-remove"
                   onClick={() => handleRemovePerson(person)}
                   disabled={busy}
                   aria-label={`Remove ${person.name}`}
                   title={`Remove ${person.name}`}
                 >
-                  ×
+                  <Icon name="close" size={14} />
                 </button>
               )}
-            </span>
+            </div>
           ))}
-        </div>
-      )}
+        </div>}
+      </details>}
+
+      {isOwner && <details className="team-settings"><summary>Team settings</summary><p className="field-hint">You’re the owner of this team.</p><button className="text-button text-danger" type="button" onClick={handleDeleteTeam} disabled={busy}><Icon name="trash" size={14} />Delete team</button></details>}
 
       {error && (
         <p className="error" role="alert">
