@@ -1,704 +1,183 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import {
-  createAssignment,
-  deleteAssignment as deleteAssignmentRequest,
-  errorMessage,
-  getMe,
-  listAssignments,
-  listPeople,
-  updateAssignment,
-  type Assignment,
-  type Person,
-  type Priority,
-  type Team,
-} from './lib/api.ts'
+import { deleteAssignment, errorMessage, getMe, listAssignments, listPeople, updateAssignment, type Assignment, type Person, type Priority, type Team } from './lib/api.ts'
+import { filterAssignments, getStatus, todayYmd, type SortOrder, type StatusFilter } from './lib/assignment-view.ts'
+import { AssignmentCard } from './components/AssignmentCard.tsx'
+import { AssignmentForm } from './components/AssignmentForm.tsx'
+import { Icon, type IconName } from './components/Icon.tsx'
+import { Modal } from './components/Modal.tsx'
 import { LegacyImportBanner } from './team/LegacyImportBanner.tsx'
 import { TeamBar } from './team/TeamBar.tsx'
 
-type Status = 'Open' | 'Overdue' | 'Completed'
-
-type StatusFilter = 'all' | 'open' | 'overdue' | 'completed'
-
-type FormState = {
-  projectName: string
-  personIds: string[]
-  assignDate: string
-  deadline: string
-  priority: Priority
-  customTasks: string
-  notes: string
-}
-
-type Session = { teams: Team[] }
-
 type LoadState = { state: 'loading' } | { state: 'ready' } | { state: 'error'; message: string }
-
 const ACTIVE_TEAM_KEY = 'project-assignments-active-team'
-
-const TASK_OPTIONS = [
-  'Frontend',
-  'Backend',
-  'API',
-  'Admin',
-  'QA',
-  'DevOps',
-  'Database',
-  'UI/UX',
-] as const
-
-const statusFilters: Array<{ value: StatusFilter; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'open', label: 'Open' },
-  { value: 'overdue', label: 'Overdue' },
-  { value: 'completed', label: 'Completed' },
+const FILTERS: Array<{ value: StatusFilter; label: string; icon: IconName }> = [
+  { value: 'all', label: 'All assignments', icon: 'grid' },
+  { value: 'open', label: 'In progress', icon: 'clock' },
+  { value: 'overdue', label: 'Overdue', icon: 'alert' },
+  { value: 'completed', label: 'Completed', icon: 'circleCheck' },
 ]
 
-function todayYmd(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getStatus(item: Assignment): Status {
-  if (item.completedAt) {
-    return 'Completed'
-  }
-
-  if (item.deadline < todayYmd()) {
-    return 'Overdue'
-  }
-
-  return 'Open'
-}
-
-function getDaysInfo(deadline: string, completed: boolean): string {
-  if (completed) {
-    return 'completed'
-  }
-
-  const now = new Date()
-  const end = new Date(`${deadline}T23:59:59`)
-  const diffMs = end.getTime() - now.getTime()
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-
-  if (diffDays > 1) {
-    return `${diffDays} days left`
-  }
-
-  if (diffDays === 1) {
-    return '1 day left'
-  }
-
-  if (diffDays === 0) {
-    return 'due today'
-  }
-
-  return `${Math.abs(diffDays)} days late`
-}
-
-function assigneeLabel(item: Assignment): string {
-  return item.assignees.length > 0 ? item.assignees.map((person) => person.name).join(', ') : 'Unassigned'
-}
-
-/** Prefer the last team the user picked, falling back to their first team. */
-function pickTeamId(teams: Team[]): string | null {
-  const saved = localStorage.getItem(ACTIVE_TEAM_KEY)
-  return teams.find((team) => team.id === saved)?.id ?? teams[0]?.id ?? null
-}
-
-function getDefaultFormState(): FormState {
-  return {
-    projectName: '',
-    personIds: [],
-    assignDate: todayYmd(),
-    deadline: '',
-    priority: 'Medium',
-    customTasks: '',
-    notes: '',
-  }
-}
-
 function App() {
-  const [session, setSession] = useState<Session | null>(null)
+  const [teams, setTeams] = useState<Team[]>([])
   const [sessionState, setSessionState] = useState<LoadState>({ state: 'loading' })
+  const [sessionKey, setSessionKey] = useState(0)
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null)
+  const activeTeamRef = useRef<string | null>(null)
   const [people, setPeople] = useState<Person[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [teamState, setTeamState] = useState<LoadState>({ state: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
-
-  const [form, setForm] = useState<FormState>(getDefaultFormState)
-  const [checkedTasks, setCheckedTasks] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [assigneeFilter, setAssigneeFilter] = useState('')
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [search, setSearch] = useState('')
+  const [priority, setPriority] = useState<Priority | 'all'>('all')
+  const [sort, setSort] = useState<SortOrder>('deadline')
+  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [editor, setEditor] = useState<{ assignment: Assignment | null } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Assignment | null>(null)
   const [actionError, setActionError] = useState('')
   const [pendingIds, setPendingIds] = useState<string[]>([])
+  const [notice, setNotice] = useState('')
+  const [today, setToday] = useState(todayYmd)
 
-  const [sessionKey, setSessionKey] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setToday(todayYmd()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
-  // Load the signed-in user and their teams (again on retry).
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(''), 4500)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
   useEffect(() => {
     let cancelled = false
-
-    getMe()
-      .then((me) => {
-        if (cancelled) return
-        setSession({ teams: me.teams })
-        setActiveTeamId(pickTeamId(me.teams))
-        setSessionState({ state: 'ready' })
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setSessionState({ state: 'error', message: errorMessage(err, 'Backend unreachable') })
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
+    getMe().then((me) => {
+      if (cancelled) return
+      const saved = localStorage.getItem(ACTIVE_TEAM_KEY)
+      const teamId = me.teams.find((team) => team.id === saved)?.id ?? me.teams[0]?.id ?? null
+      setTeams(me.teams)
+      activeTeamRef.current = teamId
+      setActiveTeamId(teamId)
+      setSessionState({ state: 'ready' })
+    }).catch((err: unknown) => {
+      if (!cancelled) setSessionState({ state: 'error', message: errorMessage(err, 'Could not load your workspace.') })
+    })
+    return () => { cancelled = true }
   }, [sessionKey])
 
-  // Load people and assignments whenever the active team changes (or on retry).
-  // Callers set teamState to 'loading' before changing activeTeamId/reloadKey.
   useEffect(() => {
-    if (!activeTeamId) {
-      return
-    }
-
+    if (!activeTeamId) return
     let cancelled = false
-
-    Promise.all([listPeople(activeTeamId), listAssignments(activeTeamId)])
-      .then(([nextPeople, nextAssignments]) => {
-        if (cancelled) return
-        setPeople(nextPeople)
-        setAssignments(nextAssignments)
-        setTeamState({ state: 'ready' })
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setTeamState({ state: 'error', message: errorMessage(err) })
-      })
-
-    return () => {
-      cancelled = true
-    }
+    Promise.all([listPeople(activeTeamId), listAssignments(activeTeamId)]).then(([nextPeople, nextAssignments]) => {
+      if (cancelled) return
+      setPeople(nextPeople)
+      setAssignments(nextAssignments)
+      setTeamState({ state: 'ready' })
+    }).catch((err: unknown) => {
+      if (!cancelled) setTeamState({ state: 'error', message: errorMessage(err) })
+    })
+    return () => { cancelled = true }
   }, [activeTeamId, reloadKey])
 
-  const activeTeam = session?.teams.find((team) => team.id === activeTeamId) ?? null
+  const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null
   const canManage = activeTeam?.role === 'owner' || activeTeam?.role === 'manager'
   const teamReady = teamState.state === 'ready'
-
-  const filteredAssignments = useMemo(() => {
-    const needle = assigneeFilter.trim().toLowerCase()
-    return assignments
-      .filter((item) => {
-        const status = getStatus(item).toLowerCase()
-        const statusMatch = statusFilter === 'all' || status === statusFilter
-        const assigneeMatch =
-          !needle || item.assignees.some((person) => person.name.toLowerCase().includes(needle))
-        return statusMatch && assigneeMatch
-      })
-      .sort((a, b) => a.deadline.localeCompare(b.deadline))
-  }, [assignments, assigneeFilter, statusFilter])
-
+  const filtered = useMemo(() => filterAssignments(assignments, { search, status: statusFilter, priority, sort, today }), [assignments, search, statusFilter, priority, sort, today])
   const stats = useMemo(() => {
-    const open = assignments.filter((item) => getStatus(item) === 'Open').length
-    const overdue = assignments.filter((item) => getStatus(item) === 'Overdue').length
-    const completed = assignments.filter((item) => getStatus(item) === 'Completed').length
-    return { open, overdue, completed }
-  }, [assignments])
+    const counts = { all: assignments.length, open: 0, overdue: 0, completed: 0 }
+    assignments.forEach((item) => { counts[getStatus(item, today)]++ })
+    return counts
+  }, [assignments, today])
+  const completionRate = stats.all ? Math.round(stats.completed / stats.all * 100) : 0
+  const hasFilters = Boolean(search.trim()) || priority !== 'all' || statusFilter !== 'all'
 
-  function selectTeam(teamId: string) {
-    localStorage.setItem(ACTIVE_TEAM_KEY, teamId)
-    setTeamState({ state: 'loading' })
+  function clearFilters() { setSearch(''); setPriority('all'); setStatusFilter('all') }
+
+  function selectTeam(teamId: string | null) {
+    if (teamId === activeTeamRef.current) return
+    activeTeamRef.current = teamId
+    if (teamId) localStorage.setItem(ACTIVE_TEAM_KEY, teamId)
+    else localStorage.removeItem(ACTIVE_TEAM_KEY)
     setActiveTeamId(teamId)
+    setTeamState({ state: 'loading' })
     setPeople([])
     setAssignments([])
+    setEditor(null)
+    setDeleteTarget(null)
     setActionError('')
-    setForm((prev) => ({ ...prev, personIds: [] }))
+    setNotice('')
+    clearFilters()
   }
 
-  function handleTeamCreated(team: Team) {
-    setSession((prev) => (prev ? { ...prev, teams: [...prev.teams, team] } : prev))
-    selectTeam(team.id)
-  }
+  function retryTeam() { setTeamState({ state: 'loading' }); setReloadKey((key) => key + 1) }
 
-  function handleTeamDeleted(teamId: string) {
-    const remaining = session?.teams.filter((team) => team.id !== teamId) ?? []
-    setSession((prev) => (prev ? { ...prev, teams: remaining } : prev))
-
-    if (remaining.length > 0) {
-      selectTeam(remaining[0].id)
-    } else {
-      localStorage.removeItem(ACTIVE_TEAM_KEY)
-      setActiveTeamId(null)
-      setPeople([])
-      setAssignments([])
-    }
-  }
-
-  function handlePersonAdded(person: Person) {
-    setPeople((prev) => [...prev, person].sort((a, b) => a.name.localeCompare(b.name)))
-  }
-
-  function handlePersonRemoved(personId: string) {
-    setPeople((prev) => prev.filter((person) => person.id !== personId))
-    // The backend drops them from every assignment (ON DELETE CASCADE); mirror that locally.
-    setAssignments((prev) =>
-      prev.map((item) => ({
-        ...item,
-        assignees: item.assignees.filter((person) => person.id !== personId),
-      })),
-    )
-    setForm((prev) => ({ ...prev, personIds: prev.personIds.filter((id) => id !== personId) }))
-  }
-
-  function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
-  function togglePerson(personId: string) {
-    setForm((prev) => ({
-      ...prev,
-      personIds: prev.personIds.includes(personId)
-        ? prev.personIds.filter((id) => id !== personId)
-        : [...prev.personIds, personId],
-    }))
-  }
-
-  function toggleTask(task: string) {
-    setCheckedTasks((prev) => {
-      if (prev.includes(task)) {
-        return prev.filter((value) => value !== task)
-      }
-
-      return [...prev, task]
-    })
-  }
-
-  function resetForm() {
-    setForm(getDefaultFormState())
-    setCheckedTasks([])
-    setError('')
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-
-    if (!activeTeam) {
-      return
-    }
-
-    const customTasks = form.customTasks
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
-
-    const tasks = Array.from(new Set([...checkedTasks, ...customTasks]))
-
-    if (!form.projectName.trim()) {
-      setError('Project name is required.')
-      return
-    }
-
-    if (form.personIds.length === 0) {
-      setError('Select at least one person to assign.')
-      return
-    }
-
-    if (!form.assignDate || !form.deadline) {
-      setError('Assign date and deadline are required.')
-      return
-    }
-
-    if (form.deadline < form.assignDate) {
-      setError('Deadline cannot be earlier than assign date.')
-      return
-    }
-
-    if (tasks.length === 0) {
-      setError('Select at least one task type or add custom task tags.')
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const created = await createAssignment(activeTeam.id, {
-        projectName: form.projectName.trim(),
-        personIds: form.personIds,
-        assignDate: form.assignDate,
-        deadline: form.deadline,
-        priority: form.priority,
-        tasks,
-        notes: form.notes.trim(),
-      })
-      setAssignments((prev) => [...prev, created])
-      resetForm()
-    } catch (err) {
-      setError(errorMessage(err, 'Could not save the assignment.'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  /** Runs a card action, disabling that card's buttons until the request settles. */
-  async function runCardAction(id: string, action: () => Promise<void>) {
+  async function runAction(item: Assignment, action: () => Promise<void>) {
     setActionError('')
-    setPendingIds((prev) => [...prev, id])
-    try {
-      await action()
-    } catch (err) {
-      setActionError(errorMessage(err))
-    } finally {
-      setPendingIds((prev) => prev.filter((value) => value !== id))
-    }
+    setPendingIds((previous) => [...previous, item.id])
+    try { await action() } catch (err) {
+      if (activeTeamRef.current === item.teamId) setActionError(errorMessage(err))
+    } finally { setPendingIds((previous) => previous.filter((id) => id !== item.id)) }
   }
 
   function toggleCompleted(item: Assignment) {
-    if (!activeTeam) return
-    void runCardAction(item.id, async () => {
-      const updated = await updateAssignment(activeTeam.id, item.id, { completed: !item.completedAt })
-      setAssignments((prev) => prev.map((value) => (value.id === updated.id ? updated : value)))
+    void runAction(item, async () => {
+      const updated = await updateAssignment(item.teamId, item.id, { completed: !item.completedAt })
+      if (activeTeamRef.current !== item.teamId) return
+      setAssignments((previous) => previous.map((value) => value.id === item.id ? updated : value))
+      setNotice(item.completedAt ? 'Assignment reopened.' : 'Assignment completed. Nice work!')
     })
   }
 
-  function deleteAssignment(id: string) {
-    if (!activeTeam) return
-    void runCardAction(id, async () => {
-      await deleteAssignmentRequest(activeTeam.id, id)
-      setAssignments((prev) => prev.filter((item) => item.id !== id))
+  function confirmDelete(item: Assignment) {
+    void runAction(item, async () => {
+      await deleteAssignment(item.teamId, item.id)
+      if (activeTeamRef.current !== item.teamId) return
+      setAssignments((previous) => previous.filter((value) => value.id !== item.id))
+      setDeleteTarget(null)
+      setNotice('Assignment deleted.')
     })
   }
 
-  if (sessionState.state === 'loading') {
-    return <div className="panel state-panel">Connecting to backend…</div>
-  }
-
-  if (sessionState.state === 'error' || !session) {
-    return (
-      <div className="panel state-panel">
-        <p className="error">
-          {sessionState.state === 'error' ? sessionState.message : 'Backend unreachable'}
-        </p>
-        <button
-          className="btn btn-secondary"
-          type="button"
-          onClick={() => {
-            setSessionState({ state: 'loading' })
-            setSessionKey((key) => key + 1)
-          }}
-        >
-          Retry
-        </button>
-      </div>
-    )
-  }
+  if (sessionState.state === 'loading') return <div className="state-panel" role="status"><span className="loading-spinner" /><h2>Opening your workspace</h2><p>Getting your teams and assignments ready.</p></div>
+  if (sessionState.state === 'error') return <div className="state-panel"><Icon name="alert" size={32} /><h2>Let’s try that again</h2><p className="error" role="alert">{sessionState.message}</p><button className="btn btn-primary" onClick={() => { setSessionState({ state: 'loading' }); setSessionKey((key) => key + 1) }}>Retry connection</button></div>
 
   return (
-    <>
-      <TeamBar
-        // Remount when the team list changes so the "create first team" form state resets.
-        key={session.teams.length}
-        teams={session.teams}
-        activeTeam={activeTeam}
-        people={people}
-        onSelectTeam={selectTeam}
-        onTeamCreated={handleTeamCreated}
-        onTeamDeleted={handleTeamDeleted}
-        onPersonAdded={handlePersonAdded}
-        onPersonRemoved={handlePersonRemoved}
-      />
+    <div className="workspace">
+      <a className="skip-link" href="#assignments-main">Skip to assignments</a>
+      <aside className="sidebar" aria-label="Workspace sidebar">
+        <div className="sidebar-section"><p className="nav-label">Workspace</p><nav className="sidebar-nav" aria-label="Assignment views">{FILTERS.map((filter) => <button key={filter.value} className={`nav-item ${statusFilter === filter.value ? 'active' : ''}`} type="button" onClick={() => setStatusFilter(filter.value)} aria-current={statusFilter === filter.value ? 'page' : undefined}><Icon name={filter.icon} /><span>{filter.label}</span>{activeTeam && <span className={`nav-count ${filter.value === 'overdue' && stats.overdue ? 'nav-count-danger' : ''}`}>{teamReady ? stats[filter.value] : '–'}</span>}</button>)}</nav></div>
+        <TeamBar key={activeTeamId ?? 'no-team'} teams={teams} activeTeam={activeTeam} people={people} loading={!teamReady && Boolean(activeTeam)} onSelectTeam={selectTeam}
+          onTeamCreated={(team) => { setTeams((previous) => [...previous, team]); selectTeam(team.id) }}
+          onTeamDeleted={(teamId) => { const remaining = teams.filter((team) => team.id !== teamId); setTeams(remaining); selectTeam(remaining[0]?.id ?? null) }}
+          onPersonAdded={(person) => setPeople((previous) => [...previous, person].sort((a, b) => a.name.localeCompare(b.name)))}
+          onPersonRemoved={(personId) => { setPeople((previous) => previous.filter((person) => person.id !== personId)); setAssignments((previous) => previous.map((item) => ({ ...item, assignees: item.assignees.filter((person) => person.id !== personId) }))) }} />
+        <div className="sidebar-footer"><span className="sidebar-footer-mark"><Icon name="check" size={15} /></span><div><strong>A little clarity, every day.</strong><p>Make room for your best work.</p></div></div>
+      </aside>
 
-      {activeTeam && canManage && teamReady && (
-        <LegacyImportBanner
-          key={activeTeam.id}
-          team={activeTeam}
-          people={people}
-          onPeopleAdded={(added) => setPeople((prev) => [...prev, ...added])}
-          onImported={(imported) => setAssignments((prev) => [...prev, ...imported])}
-        />
-      )}
+      <main className="workspace-main" id="assignments-main" tabIndex={-1}>
+        <div className="breadcrumb">Workspace <Icon name="chevron" size={13} /><span>{activeTeam?.name ?? 'Get started'}</span></div>
+        <header className="page-header"><div><p className="kicker">Your work, in focus</p><h1>Assignments<span className="heading-dot">.</span></h1><p>Keep the whole picture clear. Move the important work forward.</p></div>{activeTeam && canManage && <button className="btn btn-primary new-assignment" type="button" onClick={() => setEditor({ assignment: null })} disabled={!teamReady}><Icon name="plus" />New assignment</button>}</header>
 
-      {!activeTeam ? (
-        <div className="panel state-panel">Create a team above to start adding assignments.</div>
-      ) : (
-        <main className="app">
-          <section className="panel form-panel">
-            <header>
-              <p className="kicker">{activeTeam.name}</p>
-              <h1>Project Assignment Tracker</h1>
-              <p className="subtitle">
-                Add projects, assign people, set timeline, and select multiple task streams.
-              </p>
-            </header>
-
-            <form className="form" onSubmit={handleSubmit}>
-              {!canManage && (
-                <p className="notice">Only team owners and managers can add assignments.</p>
-              )}
-
-              <fieldset className="form-fieldset" disabled={!canManage || !teamReady || submitting}>
-                <label className="field">
-                  <span>Project Name</span>
-                  <input
-                    value={form.projectName}
-                    onChange={(event) => updateForm('projectName', event.target.value)}
-                    placeholder="Website Revamp"
-                    required
-                  />
-                </label>
-
-                <fieldset className="task-box">
-                  <legend>
-                    Assign To (multiple select)
-                    {form.personIds.length > 0 && ` · ${form.personIds.length} selected`}
-                  </legend>
-                  {people.length === 0 ? (
-                    <p className="task-box-empty">Add a member with “Add Member” above first.</p>
-                  ) : (
-                    <div className="task-grid">
-                      {people.map((person) => (
-                        <label className="task-option" key={person.id}>
-                          <input
-                            type="checkbox"
-                            checked={form.personIds.includes(person.id)}
-                            onChange={() => togglePerson(person.id)}
-                          />
-                          <span>{person.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </fieldset>
-
-                <label className="field">
-                  <span>Priority</span>
-                  <select
-                    value={form.priority}
-                    onChange={(event) => updateForm('priority', event.target.value as Priority)}
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </label>
-
-                <div className="field-row">
-                  <label className="field">
-                    <span>Assign Date</span>
-                    <input
-                      type="date"
-                      value={form.assignDate}
-                      onChange={(event) => updateForm('assignDate', event.target.value)}
-                      required
-                    />
-                  </label>
-
-                  <label className="field">
-                    <span>Deadline</span>
-                    <input
-                      type="date"
-                      value={form.deadline}
-                      onChange={(event) => updateForm('deadline', event.target.value)}
-                      required
-                    />
-                  </label>
-                </div>
-
-                <fieldset className="task-box">
-                  <legend>Task Types (multiple select)</legend>
-                  <div className="task-grid">
-                    {TASK_OPTIONS.map((task) => (
-                      <label className="task-option" key={task}>
-                        <input
-                          type="checkbox"
-                          checked={checkedTasks.includes(task)}
-                          onChange={() => toggleTask(task)}
-                        />
-                        <span>{task}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <label className="field">
-                  <span>Custom Task Tags (comma separated)</span>
-                  <input
-                    value={form.customTasks}
-                    onChange={(event) => updateForm('customTasks', event.target.value)}
-                    placeholder="security review, deployment"
-                  />
-                </label>
-
-                <label className="field">
-                  <span>Notes</span>
-                  <textarea
-                    rows={3}
-                    value={form.notes}
-                    onChange={(event) => updateForm('notes', event.target.value)}
-                    placeholder="Add blockers, links, context..."
-                  />
-                </label>
-
-                <p className="error" role="alert" aria-live="polite">
-                  {error}
-                </p>
-
-                <button className="btn btn-primary" type="submit">
-                  {submitting ? 'Saving…' : 'Add Assignment'}
-                </button>
-              </fieldset>
-            </form>
+        {!activeTeam ? <section className="empty-state welcome-state"><span className="empty-icon"><Icon name="users" size={30} /></span><p className="kicker">Better work, together</p><h2>Start with your team</h2><p>Create your first team in the sidebar, add the people you work with, and give your next project a clear plan.</p><div className="onboarding-steps"><span><b>1</b>Create a team</span><Icon name="arrow" size={15} /><span><b>2</b>Add people</span><Icon name="arrow" size={15} /><span><b>3</b>Assign work</span></div></section> : <>
+          <section className="stats-grid" aria-label="Team overview">{FILTERS.map((filter) => <button key={filter.value} className={`stat-card stat-${filter.value} ${statusFilter === filter.value ? 'stat-selected' : ''}`} type="button" onClick={() => setStatusFilter(filter.value)} aria-pressed={statusFilter === filter.value}><div className="stat-top"><span>{filter.value === 'all' ? 'Total assignments' : filter.label}</span><span className="stat-icon"><Icon name={filter.icon} size={17} /></span></div><strong>{teamReady ? stats[filter.value] : '–'}</strong><span className="stat-caption">{filter.value === 'all' ? 'Everything on your team’s plate' : filter.value === 'open' ? 'Moving toward the finish line' : filter.value === 'overdue' ? 'A little attention goes a long way' : 'Work you can feel good about'}</span></button>)}</section>
+          {canManage && teamReady && <LegacyImportBanner key={activeTeam.id} team={activeTeam} people={people} onPeopleAdded={(added) => { if (activeTeamRef.current === activeTeam.id) setPeople((previous) => [...previous, ...added]) }} onImported={(imported) => { if (activeTeamRef.current === activeTeam.id) setAssignments((previous) => [...previous, ...imported]) }} />}
+          <section className="assignments-section" aria-label="Assignments">
+            <div className="section-heading"><div><h2>Your assignments <span className="count-badge">{teamReady ? stats.all : '–'}</span></h2><p>A shared plan. A clear next step.</p></div><div className="completion-summary"><div><span>Team progress</span><strong>{teamReady ? `${completionRate}%` : '–'}</strong></div><progress value={completionRate} max={100} aria-label="Team completion" /></div></div>
+            <div className="board-toolbar"><label className="search-field"><Icon name="search" size={18} /><span className="sr-only">Search assignments</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search projects, people, or tags…" /></label><div className="toolbar-options"><label className="sr-only" htmlFor="priority-filter">Filter by priority</label><select id="priority-filter" value={priority} onChange={(event) => setPriority(event.target.value as Priority | 'all')}><option value="all">All priorities</option><option value="High">High priority</option><option value="Medium">Medium priority</option><option value="Low">Low priority</option></select><label className="sr-only" htmlFor="sort-order">Sort assignments</label><select id="sort-order" value={sort} onChange={(event) => setSort(event.target.value as SortOrder)}><option value="deadline">Deadline first</option><option value="newest">Newest first</option><option value="priority">Priority first</option><option value="name">Project A–Z</option></select><div className="view-switch" aria-label="Assignment layout"><button type="button" className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')} aria-label="Grid view" aria-pressed={view === 'grid'}><Icon name="grid" size={17} /></button><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} aria-label="List view" aria-pressed={view === 'list'}><Icon name="list" size={18} /></button></div></div></div>
+            <div className="filter-bar"><div className="status-tabs" aria-label="Filter by status">{FILTERS.map((filter) => <button key={filter.value} type="button" className={statusFilter === filter.value ? 'active' : ''} onClick={() => setStatusFilter(filter.value)} aria-pressed={statusFilter === filter.value}>{filter.value === 'all' ? 'All' : filter.label}<span>{teamReady ? stats[filter.value] : '–'}</span></button>)}</div>{hasFilters && <button className="text-button" type="button" onClick={clearFilters}>Clear filters</button>}</div>
+            {actionError && !deleteTarget && <p className="error error-banner" role="alert">{actionError}</p>}
+            {teamState.state === 'loading' ? <div className="assignment-grid" role="status" aria-label="Loading assignments">{[1, 2, 3].map((value) => <div className="skeleton-card" key={value}><span /><span /><span /><span /></div>)}</div> : teamState.state === 'error' ? <div className="empty-state"><Icon name="alert" size={30} /><h3>We couldn’t load your assignments</h3><p className="error" role="alert">{teamState.message}</p><button className="btn btn-secondary" type="button" onClick={retryTeam}>Try again</button></div> : !filtered.length ? <div className="empty-state"><span className="empty-icon"><Icon name={hasFilters ? 'search' : 'folder'} size={30} /></span><h3>{hasFilters ? 'No matches just yet' : 'A fresh space for your next project'}</h3><p>{hasFilters ? 'Try a different search or clear your filters to see more assignments.' : canManage ? 'Create an assignment, bring in your team, and get things moving.' : 'Your team’s assignments will appear here when they’re created.'}</p>{hasFilters ? <button className="btn btn-secondary" type="button" onClick={clearFilters}>Clear filters</button> : canManage && <button className="btn btn-primary" type="button" onClick={() => setEditor({ assignment: null })}><Icon name="plus" />Create your first assignment</button>}</div> : <div className={`assignment-grid ${view === 'list' ? 'assignment-list' : ''}`}>{filtered.map((item) => <AssignmentCard key={item.id} item={item} today={today} canManage={canManage} pending={pendingIds.includes(item.id)} onEdit={() => setEditor({ assignment: item })} onDelete={() => { setActionError(''); setDeleteTarget(item) }} onToggle={() => toggleCompleted(item)} />)}</div>}
+            {teamReady && <p className="results-count" role="status">Showing {filtered.length} of {stats.all} {stats.all === 1 ? 'assignment' : 'assignments'}</p>}
           </section>
-
-          <section className="panel list-panel">
-            <div className="list-header">
-              <div>
-                <p className="kicker">Live Overview</p>
-                <h2>Assignments</h2>
-              </div>
-            </div>
-
-            <div className="stat-tiles">
-              <div className="stat-tile stat-open">
-                <strong>{stats.open}</strong>
-                <span>Open</span>
-              </div>
-              <div className="stat-tile stat-overdue">
-                <strong>{stats.overdue}</strong>
-                <span>Overdue</span>
-              </div>
-              <div className="stat-tile stat-completed">
-                <strong>{stats.completed}</strong>
-                <span>Completed</span>
-              </div>
-            </div>
-
-            <div className="filters">
-              <label className="field compact">
-                <span>Status</span>
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                >
-                  {statusFilters.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field compact">
-                <span>Search Assignee</span>
-                <input
-                  value={assigneeFilter}
-                  onChange={(event) => setAssigneeFilter(event.target.value)}
-                  placeholder="type a name"
-                />
-              </label>
-            </div>
-
-            {actionError && (
-              <p className="error list-error" role="alert">
-                {actionError}
-              </p>
-            )}
-
-            <section className="cards">
-              {teamState.state === 'loading' ? (
-                <div className="empty">Loading assignments…</div>
-              ) : teamState.state === 'error' ? (
-                <div className="empty">
-                  <p className="error">{teamState.message}</p>
-                  <button
-                    className="btn btn-secondary"
-                    type="button"
-                    onClick={() => {
-                      setTeamState({ state: 'loading' })
-                      setReloadKey((key) => key + 1)
-                    }}
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : filteredAssignments.length === 0 ? (
-                <div className="empty">
-                  {assignments.length === 0
-                    ? 'No assignments yet.'
-                    : 'No assignments match current filters.'}
-                </div>
-              ) : (
-                filteredAssignments.map((item) => {
-                  const status = getStatus(item)
-                  const pending = pendingIds.includes(item.id)
-
-                  return (
-                    <article className={`card card-${status.toLowerCase()}`} key={item.id}>
-                      <div className="card-head">
-                        <h3>{item.projectName}</h3>
-                        <span className={`chip priority-${item.priority}`}>{item.priority}</span>
-                      </div>
-
-                      <p>
-                        <strong>{item.assignees.length > 1 ? 'Owners' : 'Owner'}:</strong>{' '}
-                        {assigneeLabel(item)}
-                      </p>
-                      <p>
-                        <strong>Timeline:</strong> {item.assignDate} to {item.deadline} (
-                        {getDaysInfo(item.deadline, Boolean(item.completedAt))})
-                      </p>
-
-                      <div className="chips">
-                        {item.tasks.map((task) => (
-                          <span className="chip task-chip" key={task}>
-                            {task}
-                          </span>
-                        ))}
-                      </div>
-
-                      <p className="card-notes">{item.notes || 'No notes provided.'}</p>
-
-                      <div className="card-foot">
-                        <span className={`chip status-${status.toLowerCase()}`}>{status}</span>
-
-                        <div className="actions">
-                          {canManage && (
-                            <button
-                              className="btn btn-secondary"
-                              type="button"
-                              onClick={() => toggleCompleted(item)}
-                              disabled={pending}
-                            >
-                              {item.completedAt ? 'Reopen' : 'Mark Complete'}
-                            </button>
-                          )}
-                          {canManage && (
-                            <button
-                              className="btn btn-danger"
-                              type="button"
-                              onClick={() => deleteAssignment(item.id)}
-                              disabled={pending}
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  )
-                })
-              )}
-            </section>
-          </section>
-        </main>
-      )}
-    </>
+        </>}
+        <footer className="workspace-footer"><span>Less busywork. More good work.</span><span>Manage · Your team’s workspace</span></footer>
+      </main>
+      {editor && activeTeam && canManage && <AssignmentForm key={`${activeTeam.id}-${editor.assignment?.id ?? 'new'}`} teamId={activeTeam.id} people={people} assignment={editor.assignment} onClose={() => setEditor(null)} onSaved={(saved) => { if (activeTeamRef.current !== saved.teamId) return; setAssignments((previous) => previous.some((item) => item.id === saved.id) ? previous.map((item) => item.id === saved.id ? saved : item) : [...previous, saved]); setEditor(null); setNotice(editor.assignment ? 'Assignment updated.' : 'Assignment created. You’re all set!') }} />}
+      {deleteTarget && <Modal title="Delete this assignment?" description={`“${deleteTarget.projectName}” will be permanently removed.`} compact onClose={() => setDeleteTarget(null)} busy={pendingIds.includes(deleteTarget.id)}>{actionError && <p className="error" role="alert">{actionError}</p>}<div className="form-footer"><button className="btn btn-secondary" type="button" onClick={() => setDeleteTarget(null)} disabled={pendingIds.includes(deleteTarget.id)}>Keep assignment</button><button className="btn btn-danger" type="button" onClick={() => confirmDelete(deleteTarget)} disabled={pendingIds.includes(deleteTarget.id)}><Icon name="trash" size={16} />{pendingIds.includes(deleteTarget.id) ? 'Deleting…' : 'Delete assignment'}</button></div></Modal>}
+      {notice && <div className="toast" role="status"><Icon name="circleCheck" size={19} /><span>{notice}</span><button className="icon-button" type="button" aria-label="Dismiss notification" onClick={() => setNotice('')}><Icon name="close" size={15} /></button></div>}
+    </div>
   )
 }
 
