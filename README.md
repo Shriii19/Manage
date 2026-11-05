@@ -111,9 +111,25 @@ Every `/api/*` route requires `Authorization: Bearer <Neon Auth JWT>`.
 | PATCH | `/api/teams/:teamId/assignments/:id` | owner, manager; the assignee may only send `{ "completed": bool }` |
 | DELETE | `/api/teams/:teamId/assignments/:id` | owner, manager |
 
+## Using the workspace
+
+- Select a team in the sidebar, then add the people you want to assign work to.
+- Use **New assignment** to open the assignment drawer. Owners and managers can create, edit,
+  complete, reopen, and delete assignments. Deleting an assignment requires confirmation.
+- Search across project names, people, workstream tags, and notes. Combine search with status and
+  priority filters, then sort by deadline, priority, creation date, or project name.
+- Switch between grid and list layouts. The overview cards also filter assignments by status.
+- Deadline labels use calendar days, so work due today stays open until the next day.
+
+Run the frontend production build and view-logic checks (Node.js 24 or later):
+
+```bash
+npm run build:frontend
+npm run test:frontend
+```
+
 ## Next steps
 
-- Switch the assignment board from `localStorage` to the assignments API, add a team picker, and add
-  editing of existing assignments.
-- Team management UI (create team, add members by email, roles).
+- Account-based team invitations and role management UI. The sidebar currently manages assignment
+  people by name; they do not need sign-in accounts.
 - Password reset and email verification (configure in Neon Console → Auth).
