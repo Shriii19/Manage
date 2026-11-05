@@ -315,3 +315,53 @@
     padding-left: 0;
   }
 }
+/* The workspace header shares the same quiet visual language as the board. */
+.user-bar {
+  width: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
+  min-height: 74px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 15px 32px;
+  background: #fff;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+.app-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; flex-shrink: 0; }
+.app-brand > strong { font-size: 23px; font-weight: 700; letter-spacing: -.06em; color: #315746; }
+.app-brand > strong > span { color: #73a68b; }
+.app-brand .brand-mark { width: 29px; height: 29px; border-radius: 8px; font-size: 22px; font-weight: 700; letter-spacing: -.1em; display: flex; align-items: center; justify-content: center; background: #e9f3ec; color: #39775a; padding: 0 3px 5px 0; }
+.app-brand .brand-mark > span { color: #8bb69a; }
+.topbar-label { margin-right: auto; margin-left: 50px; font-size: 10px; color: #a1aba4; }
+.user-bar-identity { display: flex; align-items: center; gap: 9px; }
+.user-bar-identity div { display: grid; gap: 3px; }
+.user-bar-identity strong { font-size: 10px; font-weight: 600; color: #63766a; }
+.user-bar-identity span:not(.user-avatar) { font-size: 9px; color: #a1aba4; }
+.user-avatar { height: 30px; width: 30px; border: 1px solid #dce8dc; border-radius: 50%; background: #edf2e9; color: #869578; font-size: 10px; display: grid; place-items: center; }
+.user-bar-actions { display: flex; align-items: center; flex-wrap: nowrap; gap: 16px; }
+.sign-out { border-left: 1px solid var(--border); border-radius: 0; padding-left: 12px; width: 32px; }
+.auth-screen { background: radial-gradient(ellipse at 15% 50%, #e7f0e7 0%, transparent 55%), #f8faf7; }
+.auth-intro h1 { font-weight: 600; letter-spacing: -.055em; }
+.auth-panel { box-shadow: 0 15px 60px #244b3310; border-radius: 14px; }
+.auth-panel h2 { font-weight: 600; }
+.auth-panel .form { gap: 16px; }
+.auth-panel .btn { font-size: 12px; }
+.auth-panel .subtitle { font-size: 12px; }
+.auth-panel .error:empty { display: none; }
+.auth-intro-copy { color: #89968d; }
+.auth-brand .brand-mark { font-weight: 600; }
+.auth-switch { font-size: 12px; }
+.demo-access { border-color: #dce7dc; background: #f4f8f1; }
+.demo-label { font-size: 9px; color: #8b9b87; }
+.demo-credentials { font-size: 11px; color: #7b8b76; }
+.demo-fill { font-size: 11px; }
+.auth-divider { font-size: 9px; color: #a0aaa3; }
+@media (max-width: 960px) { .topbar-label { display: none; } }
+@media (max-width: 760px) { .user-bar { padding: 13px 20px; min-height: 65px; gap: 12px; } .workspace { min-height: calc(100vh - 65px); } }
+@media (max-width: 480px) { .user-bar { padding-inline: 16px; } .user-bar-actions { gap: 10px; } .user-bar-identity div { display: none; } .app-brand > strong { font-size: 21px; } .user-bar-actions > .error { max-width: 140px; font-size: 9px; } }
