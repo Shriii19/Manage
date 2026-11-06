@@ -238,3 +238,291 @@ textarea { resize: vertical; min-height: 80px; }
   .status-tabs button { font-size: 10px; }
   .person-row { font-size: 11px; }
 }
+
+/* Keep the account bar and workspace on one shared, responsive canvas. */
+.user-bar {
+  width: min(1640px, calc(100% - 48px));
+  min-height: 64px;
+  margin: 18px auto 0;
+  padding: 11px 22px;
+  border-color: #e1e8e3;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 4px 18px rgba(30, 55, 45, 0.045);
+}
+
+.workspace {
+  width: min(1640px, calc(100% - 48px));
+  min-height: calc(100vh - 112px);
+  margin: 16px auto 28px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 16px 48px rgba(30, 55, 45, 0.07);
+}
+
+.sidebar {
+  padding: 30px 18px 22px;
+  background: #f8faf8;
+}
+
+.workspace-main {
+  padding: 32px clamp(24px, 3.2vw, 52px) 24px;
+  background: #fff;
+}
+
+.breadcrumb {
+  margin-bottom: 30px;
+  color: #78867d;
+}
+
+.page-header {
+  margin-bottom: 30px;
+}
+
+.page-header h1 {
+  font-size: clamp(32px, 3.2vw, 42px);
+  letter-spacing: -.045em;
+}
+
+.page-header p:not(.kicker) {
+  color: #6b7971;
+}
+
+.stats-grid {
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  min-height: 144px;
+  padding: 19px;
+  border-radius: 13px;
+  box-shadow: 0 3px 14px rgba(30, 55, 45, 0.035);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 22px rgba(30, 55, 45, 0.08);
+}
+
+.stat-card.stat-selected {
+  border-color: #8dbba4;
+  box-shadow: inset 0 0 0 1px #8dbba4, 0 4px 16px rgba(30, 55, 45, 0.045);
+}
+
+.stat-top {
+  color: #53645a;
+  font-size: 12px;
+}
+
+.stat-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #edf3ef;
+  color: #678476;
+}
+
+.stat-card > strong {
+  margin: 8px 0 3px;
+  color: #20342a;
+  font-size: 34px;
+}
+
+.stat-caption {
+  color: #77857c;
+  font-size: 10px;
+}
+
+.section-heading {
+  margin-bottom: 20px;
+}
+
+.section-heading h2 {
+  font-size: 20px;
+}
+
+.section-heading p {
+  color: #7b8980;
+}
+
+.board-toolbar {
+  padding: 11px;
+  border: 1px solid #e6ece7;
+  border-radius: 12px;
+  background: #f8faf8;
+}
+
+.search-field {
+  min-height: 42px;
+  border-color: #e1e8e3;
+  border-radius: 8px;
+}
+
+.search-field input {
+  font-size: 13px;
+}
+
+.toolbar-options select {
+  min-height: 40px;
+  border-color: #e1e8e3;
+  border-radius: 8px;
+  background-color: #fff;
+  color: #526158;
+  font-size: 11px;
+}
+
+.view-switch {
+  border-radius: 8px;
+}
+
+.view-switch button {
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+}
+
+.filter-bar {
+  margin: 14px 0 20px;
+  border-bottom-color: #e6ece7;
+}
+
+.status-tabs button {
+  padding: 12px 0 13px;
+  color: #6f7e74;
+}
+
+.status-tabs button.active {
+  color: var(--accent-strong);
+}
+
+.assignment-grid {
+  gap: 14px;
+}
+
+.assignment-card {
+  padding: 19px;
+  border-radius: 13px;
+  box-shadow: 0 3px 14px rgba(30, 55, 45, 0.04);
+}
+
+.assignment-card:hover {
+  transform: translateY(-2px);
+  border-color: #b7d0c0;
+  box-shadow: 0 10px 24px rgba(30, 55, 45, 0.085);
+}
+
+.assignment-card h3 {
+  font-size: 16px;
+  color: #26372e;
+}
+
+.card-topline {
+  margin-bottom: 18px;
+}
+
+.card-notes {
+  color: #65756a;
+  line-height: 1.65;
+}
+
+.card-deadline {
+  color: #65766b;
+}
+
+.empty-state {
+  border-color: #d8e4dc;
+  border-radius: 14px;
+  background: #fbfdfb;
+}
+
+.workspace-footer {
+  margin-top: 40px;
+  color: #7d8b82;
+}
+
+.toast {
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(23, 61, 40, 0.16);
+}
+
+@media (max-width: 960px) {
+  .user-bar,
+  .workspace {
+    width: calc(100% - 32px);
+  }
+
+  .workspace {
+    min-height: calc(100vh - 104px);
+  }
+}
+
+@media (max-width: 760px) {
+  .user-bar {
+    width: calc(100% - 24px);
+    margin-top: 12px;
+  }
+
+  .workspace {
+    width: calc(100% - 24px);
+    min-height: calc(100vh - 92px);
+    margin: 12px auto 20px;
+    border-radius: 14px;
+  }
+
+  .workspace-main {
+    padding: 24px 22px;
+  }
+
+  .assignment-card:hover,
+  .stat-card:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .user-bar {
+    padding: 11px 14px;
+    border-radius: 12px;
+  }
+
+  .workspace {
+    width: calc(100% - 16px);
+    margin-top: 8px;
+  }
+
+  .workspace-main {
+    padding: 20px 15px;
+  }
+
+  .page-header h1 {
+    font-size: 29px;
+  }
+
+  .stat-card {
+    min-height: 132px;
+    padding: 12px;
+  }
+
+  .stat-top {
+    font-size: 10px;
+  }
+
+  .stat-card > strong {
+    font-size: 30px;
+  }
+
+  .stat-caption {
+    font-size: 9px;
+  }
+
+  .board-toolbar {
+    padding: 8px;
+  }
+
+  .assignment-card {
+    border-radius: 12px;
+  }
+}
