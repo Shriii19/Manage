@@ -1,13 +1,13 @@
 :root {
-  --bg-main: #f8faf9;
+  --bg-main: #f3f6f4;
   --surface: #ffffff;
-  --ink: #202e2b;
-  --muted: #79827f;
-  --accent: #238675;
-  --accent-strong: #176e5d;
-  --danger: #bd4e47;
-  --border: #e5eae7;
-  --shadow: 0 4px 20px rgba(30, 55, 45, 0.035);
+  --ink: #1d2b26;
+  --muted: #6b7971;
+  --accent: #2f8a70;
+  --accent-strong: #176a52;
+  --danger: #b94d45;
+  --border: #e1e8e3;
+  --shadow: 0 8px 26px rgba(30, 55, 45, 0.055);
   --font-body: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-heading: var(--font-body);
   font-synthesis: none;
@@ -16,7 +16,15 @@
 }
 * { box-sizing: border-box; }
 html, body, #root { min-height: 100%; }
-body { margin: 0; font-family: var(--font-body); font-size: 14px; color: var(--ink); background: var(--bg-main); }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(208, 229, 216, 0.34), transparent 34rem),
+    var(--bg-main);
+}
 button, input, select, textarea { font: inherit; }
 button, a, input, select, textarea, summary { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }
