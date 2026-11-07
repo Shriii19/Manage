@@ -1,63 +1,20 @@
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { Router } from "express";
-import { z } from "zod";
 import { db } from "../db/client.js";
-import { assignmentPeople, assignmentPriority, assignments, teamPeople } from "../db/schema.js";
+import { assignmentPeople, assignments, teamPeople } from "../db/schema.js";
+import {
+  assignmentListQuerySchema,
+  assignmentParamsSchema,
+  assignmentTeamParamsSchema,
+  createAssignmentBodySchema,
+  type AssignmentListQuery,
+  updateAssignmentBodySchema,
+} from "../lib/assignment-validation.js";
 import { MANAGERS, requireRole } from "../lib/team-access.js";
 import { currentUser } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errors.js";
 
-const teamParams = z.object({ teamId: z.uuid() });
-const assignmentParams = teamParams.extend({ assignmentId: z.uuid() });
-
-const isoDate = z.iso.date();
-const priority = z.enum(assignmentPriority.enumValues);
-const tasks = z
-  .array(z.string().trim().min(1).max(60))
-  .min(1, "Select at least one task type or add custom task tags")
-  .max(30)
-  .transform((values) => [...new Set(values)]);
-const projectName = z.string().trim().min(1).max(160);
-const notes = z.string().trim().max(5000);
-const personIds = z
-  .array(z.uuid())
-  .max(50)
-  .transform((values) => [...new Set(values)]);
-
-const createBody = z
-  .object({
-    projectName,
-    personIds: personIds.default([]),
-    assignDate: isoDate,
-    deadline: isoDate,
-    priority: priority.default("Medium"),
-    tasks,
-    notes: notes.default(""),
-  })
-  .refine((body) => body.deadline >= body.assignDate, {
-    path: ["deadline"],
-    error: "Deadline cannot be earlier than assign date",
-  });
-
-const updateBody = z
-  .strictObject({
-    projectName,
-    personIds,
-    assignDate: isoDate,
-    deadline: isoDate,
-    priority,
-    tasks,
-    notes,
-    completed: z.boolean(),
-  })
-  .partial();
-
-const listQuery = z.object({
-  status: z.enum(["open", "overdue", "completed"]).optional(),
-  personId: z.uuid().optional(),
-});
-
-const statusCondition: Record<NonNullable<z.infer<typeof listQuery>["status"]>, SQL> = {
+const statusCondition: Record<NonNullable<AssignmentListQuery["status"]>, SQL> = {
   completed: isNotNull(assignments.completedAt),
   open: and(isNull(assignments.completedAt), gte(assignments.deadline, sql`current_date`))!,
   overdue: and(isNull(assignments.completedAt), lt(assignments.deadline, sql`current_date`))!,
@@ -133,9 +90,9 @@ export const assignmentsRouter = Router({ mergeParams: true });
 
 assignmentsRouter.get("/", async (req, res) => {
   const user = currentUser(req);
-  const { teamId } = teamParams.parse(req.params);
+  const { teamId } = assignmentTeamParamsSchema.parse(req.params);
   await requireRole(teamId, user.id);
-  const query = listQuery.parse(req.query);
+  const query = assignmentListQuerySchema.parse(req.query);
 
   const conditions: SQL[] = [eq(assignments.teamId, teamId)];
   if (query.status) {
@@ -162,9 +119,9 @@ assignmentsRouter.get("/", async (req, res) => {
 
 assignmentsRouter.post("/", async (req, res) => {
   const user = currentUser(req);
-  const { teamId } = teamParams.parse(req.params);
+  const { teamId } = assignmentTeamParamsSchema.parse(req.params);
   await requireRole(teamId, user.id, MANAGERS);
-  const { personIds, ...fields } = createBody.parse(req.body);
+  const { personIds, ...fields } = createAssignmentBodySchema.parse(req.body);
   await assertAssignable(teamId, personIds);
 
   const createdId = await db.transaction(async (tx) => {
@@ -181,10 +138,10 @@ assignmentsRouter.post("/", async (req, res) => {
 
 assignmentsRouter.patch("/:assignmentId", async (req, res) => {
   const user = currentUser(req);
-  const { teamId, assignmentId } = assignmentParams.parse(req.params);
+  const { teamId, assignmentId } = assignmentParamsSchema.parse(req.params);
   // Assignees are plain names, not accounts, so only owners and managers can change assignments.
   await requireRole(teamId, user.id, MANAGERS);
-  const body = updateBody.parse(req.body);
+  const body = updateAssignmentBodySchema.parse(req.body);
   const existing = await findAssignment(teamId, assignmentId);
 
   const assignDate = body.assignDate ?? existing.assignDate;
@@ -223,7 +180,7 @@ assignmentsRouter.patch("/:assignmentId", async (req, res) => {
 
 assignmentsRouter.delete("/:assignmentId", async (req, res) => {
   const user = currentUser(req);
-  const { teamId, assignmentId } = assignmentParams.parse(req.params);
+  const { teamId, assignmentId } = assignmentParamsSchema.parse(req.params);
   await requireRole(teamId, user.id, MANAGERS);
 
   const deleted = await db
