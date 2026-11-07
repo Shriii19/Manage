@@ -121,12 +121,14 @@ Every `/api/*` route requires `Authorization: Bearer <Neon Auth JWT>`.
 - Switch between grid and list layouts. The overview cards also filter assignments by status.
 - Deadline labels use calendar days, so work due today stays open until the next day.
 
-Run the frontend production build and view-logic checks (Node.js 24 or later):
+Run the production builds and test suites (Node.js 24 or later):
 
 ```bash
-npm run build:frontend
-npm run test:frontend
+npm run build
+npm test
 ```
+
+The test command runs frontend assignment-view tests and backend request-validation tests.
 
 ## Next steps
 
